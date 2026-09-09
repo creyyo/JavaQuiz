@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <title>Quiz Search</title>
+	  <style>
+	     body {
+	     font-family: "Segoe UI", Roboto, sans-serif;
+	     background: #f5f8ff;
+	     color: #222;
+	     max-width: 900px;
+	     margin: 40px auto;
+	     padding: 20px;
+	     border-radius: 12px;
+	     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+	     }
+	     h1 {
+	     text-align: center;
+	     color: #2454a6;
+	     font-weight: 600;
+	     margin-bottom: 25px;
+	     }
+	     #searchInput {
+	     width: 350px;
+	     padding: 10px 12px;
+	     border: 1px solid #ccd4e0;
+	     border-radius: 8px;
+	     font-size: 16px;
+	     transition: all 0.2s ease-in-out;
+	     }
+	     #searchInput:focus {
+	     border-color: #5a8eff;
+	     box-shadow: 0 0 6px rgba(90, 142, 255, 0.4);
+	     outline: none;
+	     }
+	     button {
+	     padding: 9px 16px;
+		 background-color: #6b82f8;
+	     color: white;
+	     border: none;
+	     border-radius: 8px;
+	     cursor: pointer;
+	     font-weight: 500;
+	     transition: background 0.2s ease, transform 0.1s ease;
+	     }
+	     button:hover {
+		 background-color: #edf2ff;
+	     transform: translateY(-1px);
+	     }
+	     button:active {
+	     transform: translateY(0);
+	     }
+	   #prevNextButtons {
+	   padding: 2px 0px;		
+	   }
+	     #searchResults {
+	     padding: 2px 0px;
+	     display: grid;
+	     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+	     gap: 10px;
+	     }
+	     .search-btn {
+	     background-color: #fff;
+	     font-weight: 600;
+	     color: #333;
+	     transition: all 0.2s;
+	     }
+	     .search-btn:hover {
+	     background-color: #edf2ff;
+	     border-color: #4a6fff;
+	     }
+	     .search-btn.active {
+	     background-color: #4a6fff;
+	     color: white;
+	     }
+	     /* === Question Box === */
+	     #questionBox {
+	     background-color: #ffffff;
+	     border-radius: 12px;
+	     padding: 20px;
+	     box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+	     margin-top: 20px;
+	     }
+	     pre {
+	     background-color: #f6f8ff;
+	     padding: 12px;
+	     border-radius: 8px;
+	     border: 1px solid #e0e6f0;
+	     font-size: 15px;
+	     white-space: pre-wrap;
+	     }
+	     .answer-option {
+	     margin: 8px 0;
+	     padding: 8px;
+	     border-radius: 6px;
+	     transition: background 0.2s;
+	     }
+	     .answer-option:hover {
+	     background-color: #f2f6ff;
+	     }
+	     #result {
+	     font-weight: bold;
+	     margin-top: 15px;
+	     font-size: 18px;
+	     }
+	     #note pre {
+	     background-color: #eaf0ff;
+	     border-left: 4px solid #4a6fff;
+	     padding: 10px;
+	     border-radius: 6px;
+	     margin-top: 10px;
+	     }
+	     #prevBtn, #nextBtn {
+	     background-color: #6b82f8;
+	     margin-right: 8px;
+	     }
+	     #prevBtn:hover, #nextBtn:hover {
+	     background-color: #5269ea;
+	     }
+	     .flex-row {
+	     display: flex;
+	     gap: 10px;
+	     align-items: center;
+	     }
+	     .center {
+	     display: flex;
+	     justify-content: center;
+	     align-items: center;
+	     }
+	  </style>
+   </head>
+   <body>
+      <h1>Search Questions</h1>
+      <div class="flex-row center" style="margin-bottom: 20px;">
+         <input type="text" id="searchInput" placeholder="Search keyword..." />
+         <button id="searchBtn">Search</button>
+      </div>
+      <div><a href="quiz.html">Back to questions</a></div>
+      <div id="searchResults"></div>
+      <script>
+         const apiBase = "http://localhost:8080/questions";
+         const challengesApi = "http://localhost:8080/challenges";
+         
+         async function searchChallenges() {
+           const keyword = document.getElementById("searchInput").value.trim();
+           const resultsDiv = document.getElementById("searchResults");
+           resultsDiv.innerHTML = "";
+         
+           if (!keyword) {
+             resultsDiv.textContent = "Search keyword";
+             return;
+           }
+         
+           // Numeric input → go directly to that question
+           if (!isNaN(keyword)) {
+             window.location.href = `quiz.html?id=${keyword}`;
+             return;
+           }
+         
+           // Keyword search
+           try {
+             const res = await fetch(`${challengesApi}?keyword=${encodeURIComponent(keyword)}`);
+             if (!res.ok) throw new Error();
+             const challenges = await res.json();
+         
+             if (challenges.length === 0) {
+               resultsDiv.textContent = "No matches found.";
+               return;
+             }
+         
+             challenges.forEach(challenge => {
+               const btn = document.createElement("button");
+               btn.className = "search-btn";
+               btn.textContent = `#${challenge.index}`;
+               btn.addEventListener("click", () => {
+                 window.location.href = `quiz.html?id=${challenge.index}`;
+               });
+               resultsDiv.appendChild(btn);
+             });
+           } catch (err) {
+             resultsDiv.textContent = "Error searching questions.";
+           }
+         }
+         
+         document.getElementById("searchBtn").addEventListener("click", searchChallenges);
+         document.getElementById("searchInput").addEventListener("keydown", e => {
+           if (e.key === "Enter") searchChallenges();
+         });
+         
+         // --- Auto-run search if ?keyword=... is in the URL ---
+         document.addEventListener("DOMContentLoaded", () => {
+         const params = new URLSearchParams(window.location.search);
+         const keyword = params.get("keyword");
+         
+         if (keyword) {
+          document.getElementById("searchInput").value = keyword;
+          searchChallenges(keyword);
+         }
+         });
+         
+      </script>
+   </body>
+</html>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Quiz Player</title>
+  <style>
+     body {
+     font-family: "Segoe UI", Roboto, sans-serif;
+     background: #f5f8ff;
+     color: #222;
+     max-width: 900px;
+     margin: 40px auto;
+     padding: 20px;
+     border-radius: 12px;
+     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+     }
+     h1 {
+     text-align: center;
+     color: #2454a6;
+     font-weight: 600;
+     margin-bottom: 25px;
+     }
+     #searchInput {
+     width: 350px;
+     padding: 10px 12px;
+     border: 1px solid #ccd4e0;
+     border-radius: 8px;
+     font-size: 16px;
+     transition: all 0.2s ease-in-out;
+     }
+     #searchInput:focus {
+     border-color: #5a8eff;
+     box-shadow: 0 0 6px rgba(90, 142, 255, 0.4);
+     outline: none;
+     }
+     button {
+     padding: 9px 16px;
+	 background-color: #6b82f8;
+     color: white;
+     border: none;
+     border-radius: 8px;
+     cursor: pointer;
+     font-weight: 500;
+     transition: background 0.2s ease, transform 0.1s ease;
+     }
+     button:hover {
+	 background-color: #5269ea;
+     transform: translateY(-1px);
+     }
+     button:active {
+     transform: translateY(0);
+     }
+   #prevNextButtons {
+   padding: 2px 0px;		
+   }
+     .search-btn {
+     background-color: #fff;
+     font-weight: 600;
+     color: #333;
+     transition: all 0.2s;
+     }
+     .search-btn:hover {
+     background-color: #edf2ff;
+     border-color: #4a6fff;
+     }
+     .search-btn.active {
+     background-color: #4a6fff;
+     color: white;
+     }
+     /* === Question Box === */
+     #questionBox {
+     background-color: #ffffff;
+     border-radius: 12px;
+     padding: 20px;
+     box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+     margin-top: 20px;
+     }
+     pre {
+     background-color: #f6f8ff;
+     padding: 12px;
+     border-radius: 8px;
+     border: 1px solid #e0e6f0;
+     font-size: 15px;
+     white-space: pre-wrap;
+     }
+     .answer-option {
+     margin: 8px 0;
+     padding: 8px;
+     border-radius: 6px;
+     transition: background 0.2s;
+     }
+     .answer-option:hover {
+     background-color: #f2f6ff;
+     }
+     #result {
+     font-weight: bold;
+     margin-top: 15px;
+     font-size: 18px;
+     }
+     #note pre {
+     background-color: #eaf0ff;
+     border-left: 4px solid #4a6fff;
+     padding: 10px;
+     border-radius: 6px;
+     margin-top: 10px;
+     }
+     #prevBtn, #nextBtn {
+     background-color: #6b82f8;
+     margin-right: 8px;
+     }
+     #prevBtn:hover, #nextBtn:hover {
+     background-color: #5269ea;
+     }
+     .flex-row {
+     display: flex;
+     gap: 10px;
+     align-items: center;
+     }
+     .center {
+     display: flex;
+     justify-content: center;
+     align-items: center;
+     }
+  </style>
+</head>
+<body>
+  <h1>Quiz</h1>
+
+  <div style="margin: 15px 0;">
+    <input type="text" id="searchInput" placeholder="Search keyword" />
+    <button id="searchBtn">Search</button>
+  </div>
+
+  <div style="display: flex; gap: 20px;">
+    <div style="flex: 1;">
+      <div id="questionNumber"></div>
+      <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+        <div>
+          <button id="prevBtn">Previous Question</button>
+          <button id="nextBtn">Next Question</button>
+        </div>
+        <div id="seedSpace">
+          Enter seed between [-1.0,1.0]
+          <input type="number" step="0.001" min="-1.0" max="1.0" id="numInput" placeholder="seed" />
+        </div>
+      </div>
+
+      <div id="questionBox">
+        <pre id="questionText">Loading question...</pre>
+        <div id="answers"></div>
+      </div>
+
+      <div style="margin-top: 10px;">
+        <button id="submitBtn" style="display:none;">Submit</button>
+        <button id="showAnswerBtn" style="display:none;">Show Answer</button>
+      </div>
+
+      <div id="result"></div>
+      <div id="note"></div>
+    </div>
+  </div>
+
+  <script>
+    const apiBase = "http://localhost:8080/questions";
+    const challengesApi = "http://localhost:8080/challenges";
+
+    let currentQuestionId = null;
+    let questionHistory = [];
+    let currentHistoryIndex = -1;
+
+    const params = new URLSearchParams(window.location.search);
+    const questionIdFromSearch = params.get("id");
+
+    async function loadRandomQuestion(fromHistory = false) {
+      document.getElementById('result').textContent = "";
+      document.getElementById('note').textContent = "";
+      document.getElementById('answers').innerHTML = "";
+      document.getElementById('questionText').textContent = "Loading...";
+      document.getElementById('submitBtn').style.display = "none";
+      document.getElementById('showAnswerBtn').style.display = "none";
+
+      const numInput = document.getElementById("numInput").value.trim();
+
+      if (fromHistory) {
+        displayQuestion(questionHistory[currentHistoryIndex]);
+        return;
+      }
+
+      try {
+        const endpoint = numInput ? `random/${numInput}` : "random";
+        const res = await fetch(`${apiBase}/${endpoint}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const q = await res.json();
+        questionHistory.push(q);
+        currentHistoryIndex = questionHistory.length - 1;
+        document.getElementById('numInput').value = "";
+        displayQuestion(q);
+      } catch (err) {
+        document.getElementById('questionText').textContent = "Error loading question.";
+      }
+    }
+
+    function displayQuestion(q) {
+      currentQuestionId = q.index;
+      document.getElementById('questionNumber').textContent = `Question nr: ${q.index}`;
+      document.getElementById('questionText').innerHTML = q.question.replace(/\r\n/g, "\n");
+
+      const answersDiv = document.getElementById('answers');
+      answersDiv.innerHTML = "";
+      q.answers.forEach(answerText => {
+		const wrapper = document.createElement('div');
+		wrapper.className = "answer-option";
+		wrapper.style.cursor = "pointer"; // make it feel clickable
+
+		const checkbox = document.createElement('input');
+		checkbox.type = "checkbox";
+		checkbox.name = "answer";
+		checkbox.value = answerText.trim().charAt(0);
+
+		const label = document.createElement('label');
+		label.textContent = answerText;
+		label.style.marginLeft = "8px";
+
+		// ✅ Make the whole div toggle the checkbox
+		wrapper.addEventListener("click", (e) => {
+		  // Prevent double-toggling if the click is directly on the checkbox
+		  if (e.target.tagName !== "INPUT") {
+		    checkbox.checked = !checkbox.checked;
+		  }
+		});
+
+		wrapper.appendChild(checkbox);
+		wrapper.appendChild(label);
+		answersDiv.appendChild(wrapper);
+      });
+
+      document.getElementById('submitBtn').style.display = "inline-block";
+      document.getElementById('showAnswerBtn').style.display = "inline-block";
+    }
+
+    async function submitAnswers() {
+      const selected = Array.from(document.querySelectorAll('input[name="answer"]:checked')).map(cb => cb.value);
+      if (selected.length === 0) return alert("Please select at least one answer.");
+
+      try {
+        const res = await fetch(`${apiBase}/${currentQuestionId}/check`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answers: selected })
+        });
+        const result = await res.json();
+        const resultDiv = document.getElementById('result');
+        resultDiv.textContent = result.isAnswerCorrect ? "Correct!" : "Wrong!";
+        resultDiv.style.color = result.isAnswerCorrect ? "green" : "red";
+
+        const noteDiv = document.getElementById('note');
+        noteDiv.textContent = "";
+        if (result.note) {
+          noteDiv.innerHTML = `<pre>${result.note.replace(/\r\n/g, "\n")}</pre>`;
+        }
+      } catch {
+        document.getElementById('result').textContent = "Error submitting answer.";
+      }
+    }
+
+    async function showAnswer() {
+      try {
+        const res = await fetch(`${apiBase}/${currentQuestionId}/answer`);
+        const data = await res.json();
+
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = `<pre>Correct Answer(s): ${data.answers.join(", ")}</pre>`;
+
+        const noteDiv = document.getElementById('note');
+        noteDiv.textContent = "";
+        if (data.note) noteDiv.innerHTML = `<pre>${data.note}</pre>`;
+
+        const checkboxes = document.querySelectorAll('input[name="answer"]');
+        checkboxes.forEach(cb => {
+          if (data.answers.includes(cb.value)) cb.checked = true;
+        });
+      } catch {
+        document.getElementById('result').textContent = "Error loading answer.";
+      }
+    }
+
+    async function showFullQuestionById(id) {
+      const res = await fetch(`${apiBase}/${id}`);
+      if (res.ok) {
+        const q = await res.json();
+        displayQuestion(q);
+        questionHistory.push(q);
+        currentHistoryIndex = questionHistory.length - 1;
+      }
+    }
+
+    document.getElementById('prevBtn').addEventListener('click', () => {
+      if (currentHistoryIndex > 0) {
+        currentHistoryIndex--;
+        displayQuestion(questionHistory[currentHistoryIndex]);
+      }
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', () => loadRandomQuestion());
+    document.getElementById('submitBtn').addEventListener('click', submitAnswers);
+    document.getElementById('showAnswerBtn').addEventListener('click', showAnswer);
+	document.getElementById('searchBtn').addEventListener("click", () => {
+	  const keyword = document.getElementById("searchInput").value.trim();
+	  if (keyword) {
+	    window.location.href = `search.html?keyword=${encodeURIComponent(keyword)}`;
+	  }
+	});
+	document.getElementById('searchInput').addEventListener("keydown", (event) => {
+	  if (event.key === "Enter") {
+	    const keyword = event.target.value.trim();
+	    if (keyword) {
+	      window.location.href = `search.html?keyword=${encodeURIComponent(keyword)}`;
+	    }
+	  }
+	});
+
+
+    // Load initial question
+    if (questionIdFromSearch) {
+      showFullQuestionById(questionIdFromSearch);
+    } else {
+      loadRandomQuestion();
+    }
+  </script>
+</body>
+</html>

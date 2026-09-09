@@ -1,0 +1,17 @@
+Question
+When does the string created on line 2 become eligible for garbage collection? 
+1. String s = "aaa"; 
+2. String t = new String(s);  
+3. t += "zzz"; 
+4. t = t.substring(0); 
+5. t = null; 
+QuestionEnd
+A. After line 3 
+B. After line 4 
+C. After line 5 
+D. The string created on line 2 does not become eligible for garbage collection in this code.
+Answer: A.
+Note
+Line 3 creates a new string that contains aaazzz and assigns t to point to that new string.  
+At that moment there are no references to the string created on line 2 ( "aaa"), so it becomes eligible for garbage collection. 
+NoteEnd
